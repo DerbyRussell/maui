@@ -5,7 +5,7 @@ using Gtk;
 using Microsoft.Maui.Graphics;
 using Microsoft.Maui.Handlers;
 
-namespace Microsoft.Maui.Platform.GTK
+namespace Microsoft.Maui.Platform
 {
 	public static class MauiGTKText
 	{

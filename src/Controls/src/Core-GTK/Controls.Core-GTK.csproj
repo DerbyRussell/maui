@@ -448,6 +448,8 @@
     <Compile Include="..\Core\MeasureFlags.cs" Link="MeasureFlags.cs" />
     <Compile Include="..\Core\MenuBar.cs" Link="MenuBar.cs" />
     <Compile Include="..\Core\MenuBarItem.cs" Link="MenuBarItem.cs" />
+    <Compile Include="..\Core\MenuItem.cs" Link="MenuItem.cs" />
+    <Compile Include="..\Core\MenuItemTracker.cs" Link="MenuItemTracker.cs" />
     <Compile Include="..\Core\MergedStyle.cs" Link="MergedStyle.cs" />
     <Compile Include="..\Core\MessagingCenter.cs" Link="MessagingCenter.cs" />
     <Compile Include="..\Core\ModalEventArgs.cs" Link="ModalEventArgs.cs" />
@@ -765,7 +767,6 @@
   </Target>
   
   <ItemGroup>
-    <Folder Include="Cells\" />
     <Folder Include="DragAndDrop\" />
     <Folder Include="Foldable\" />
     <Folder Include="HandlerImpl\Button\" />

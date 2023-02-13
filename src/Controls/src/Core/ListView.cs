@@ -6,6 +6,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Windows.Input;
 using Microsoft.Extensions.Logging;
+using Microsoft.Maui.Cells;
 using Microsoft.Maui.Controls.Internals;
 using Microsoft.Maui.Controls.Xaml.Diagnostics;
 using Microsoft.Maui.Devices;
@@ -13,8 +14,12 @@ using Microsoft.Maui.Graphics;
 
 namespace Microsoft.Maui.Controls
 {
+#if __GTK__
+	public partial class ListView : ItemsView<Cell_GTK>, IListViewController, IElementConfiguration<ListView>, IVisualTreeElement
+#else
 	/// <include file="../../docs/Microsoft.Maui.Controls/ListView.xml" path="Type[@FullName='Microsoft.Maui.Controls.ListView']/Docs/*" />
 	public class ListView : ItemsView<Cell>, IListViewController, IElementConfiguration<ListView>, IVisualTreeElement
+#endif
 	{
 		readonly List<Element> _logicalChildren = new List<Element>();
 		IReadOnlyList<IVisualTreeElement> IVisualTreeElement.GetVisualChildren() => _logicalChildren;
@@ -327,6 +332,17 @@ namespace Microsoft.Maui.Controls
 			get { return _headerElement; }
 		}
 
+#if __GTK__
+		/// <include file="../../docs/Microsoft.Maui.Controls/ListView.xml" path="//Member[@MemberName='SendCellAppearing']/Docs/*" />
+		[EditorBrowsable(EditorBrowsableState.Never)]
+		public void SendCellAppearing(Cell_GTK cell)
+			=> ItemAppearing?.Invoke(this, new ItemVisibilityEventArgs(cell.BindingContext, TemplatedItems.GetGlobalIndexOfItem(cell?.BindingContext)));
+
+		/// <include file="../../docs/Microsoft.Maui.Controls/ListView.xml" path="//Member[@MemberName='SendCellDisappearing']/Docs/*" />
+		[EditorBrowsable(EditorBrowsableState.Never)]
+		public void SendCellDisappearing(Cell_GTK cell)
+			=> ItemDisappearing?.Invoke(this, new ItemVisibilityEventArgs(cell.BindingContext, TemplatedItems.GetGlobalIndexOfItem(cell?.BindingContext)));
+#else
 		/// <include file="../../docs/Microsoft.Maui.Controls/ListView.xml" path="//Member[@MemberName='SendCellAppearing']/Docs/*" />
 		[EditorBrowsable(EditorBrowsableState.Never)]
 		public void SendCellAppearing(Cell cell)
@@ -336,6 +352,7 @@ namespace Microsoft.Maui.Controls
 		[EditorBrowsable(EditorBrowsableState.Never)]
 		public void SendCellDisappearing(Cell cell)
 			=> ItemDisappearing?.Invoke(this, new ItemVisibilityEventArgs(cell.BindingContext, TemplatedItems.GetGlobalIndexOfItem(cell?.BindingContext)));
+#endif
 
 		/// <include file="../../docs/Microsoft.Maui.Controls/ListView.xml" path="//Member[@MemberName='SendScrolled']/Docs/*" />
 		[EditorBrowsable(EditorBrowsableState.Never)]
@@ -409,12 +426,21 @@ namespace Microsoft.Maui.Controls
 				_pendingScroll = args;
 		}
 
+#if __GTK__
+		protected override Cell_GTK CreateDefault(object item)
+		{
+			TextCell_GTK textCell = new TextCell_GTK();
+			textCell.SetBinding(TextCell_GTK.TextProperty, ".", converter: _toStringValueConverter);
+			return textCell;
+		}
+#else
 		protected override Cell CreateDefault(object item)
 		{
 			TextCell textCell = new TextCell();
 			textCell.SetBinding(TextCell.TextProperty, ".", converter: _toStringValueConverter);
 			return textCell;
 		}
+#endif
 
 		protected override SizeRequest OnMeasure(double widthConstraint, double heightConstraint)
 		{
@@ -439,6 +465,161 @@ namespace Microsoft.Maui.Controls
 			return new SizeRequest(request, minimumSize);
 		}
 
+		/// <include file="../../docs/Microsoft.Maui.Controls/ListView.xml" path="//Member[@MemberName='GetDisplayTextFromGroup']/Docs/*" />
+		[EditorBrowsable(EditorBrowsableState.Never)]
+		public string GetDisplayTextFromGroup(object cell)
+		{
+			int groupIndex = TemplatedItems.GetGlobalIndexOfGroup(cell);
+
+			if (groupIndex == -1)
+				return cell.ToString();
+
+			var group = TemplatedItems.GetGroup(groupIndex);
+
+			string displayBinding = null;
+
+			if (GroupDisplayBinding != null)
+				displayBinding = group.Name;
+
+			if (GroupShortNameBinding != null)
+				displayBinding = group.ShortName;
+
+			// TODO: what if they set both? should it default to the ShortName, like it will here?
+			// ShortNames binding did not appear to be functional before.
+			return displayBinding;
+		}
+
+#if __GTK__
+		protected override void SetupContent(Cell_GTK content, int index)
+		{
+			base.SetupContent(content, index);
+			if (content is ViewCell_GTK viewCell && viewCell.View != null && HasUnevenRows)
+				viewCell.View.ComputedConstraint = LayoutConstraint.None;
+
+			if (content != null)
+			{
+				_logicalChildren.Add(content);
+				content.Parent = this;
+				VisualDiagnostics.OnChildAdded(this, content);
+			}
+		}
+
+		protected override void UnhookContent(Cell_GTK content)
+		{
+			base.UnhookContent(content);
+
+			if (content == null || !_logicalChildren.Contains(content))
+				return;
+			var index = _logicalChildren.IndexOf(content);
+			_logicalChildren.Remove(content);
+			content.Parent = null;
+			VisualDiagnostics.OnChildRemoved(this, content, index);
+
+		}
+
+		/// <include file="../../docs/Microsoft.Maui.Controls/ListView.xml" path="//Member[@MemberName='CreateDefaultCell']/Docs/*" />
+		[EditorBrowsable(EditorBrowsableState.Never)]
+		public Cell_GTK CreateDefaultCell(object item)
+		{
+			return CreateDefault(item);
+		}
+
+		/// <include file="../../docs/Microsoft.Maui.Controls/ListView.xml" path="//Member[@MemberName='NotifyRowTapped'][2]/Docs/*" />
+		[EditorBrowsable(EditorBrowsableState.Never)]
+		public void NotifyRowTapped(int groupIndex, int inGroupIndex, Cell_GTK cell = null)
+		{
+			var group = TemplatedItems.GetGroup(groupIndex);
+
+			bool changed = _previousGroupSelected != groupIndex || _previousRowSelected != inGroupIndex;
+
+			_previousRowSelected = inGroupIndex;
+			_previousGroupSelected = groupIndex;
+
+			// A11y: Keyboards and screen readers can deselect items, allowing -1 to be possible
+			if (cell == null && inGroupIndex >= 0)
+			{
+				cell = group[inGroupIndex];
+			}
+
+			// Set SelectedItem before any events so we don't override any changes they may have made.
+			if (SelectionMode != ListViewSelectionMode.None)
+				SetValueCore(SelectedItemProperty, cell?.BindingContext, SetValueFlags.ClearOneWayBindings | SetValueFlags.ClearDynamicResource | (changed ? SetValueFlags.RaiseOnEqual : 0));
+
+			cell?.OnTapped();
+
+			ItemTapped?.Invoke(this, new ItemTappedEventArgs(ItemsSource.Cast<object>().ElementAt(groupIndex), cell?.BindingContext, TemplatedItems.GetGlobalIndexOfItem(cell?.BindingContext)));
+		}
+
+		/// <include file="../../docs/Microsoft.Maui.Controls/ListView.xml" path="//Member[@MemberName='NotifyRowTapped'][4]/Docs/*" />
+		[EditorBrowsable(EditorBrowsableState.Never)]
+		public void NotifyRowTapped(int groupIndex, int inGroupIndex, Cell_GTK cell, bool isContextMenuRequested)
+		{
+			var group = TemplatedItems.GetGroup(groupIndex);
+
+			bool changed = _previousGroupSelected != groupIndex || _previousRowSelected != inGroupIndex;
+
+			_previousRowSelected = inGroupIndex;
+			_previousGroupSelected = groupIndex;
+
+			// A11y: Keyboards and screen readers can deselect items, allowing -1 to be possible
+			if (cell == null && inGroupIndex >= 0 && group.Count > inGroupIndex)
+			{
+				cell = group[inGroupIndex];
+			}
+
+			// Set SelectedItem before any events so we don't override any changes they may have made.
+			if (SelectionMode != ListViewSelectionMode.None)
+				SetValueCore(SelectedItemProperty, cell?.BindingContext, SetValueFlags.ClearOneWayBindings | SetValueFlags.ClearDynamicResource | (changed ? SetValueFlags.RaiseOnEqual : 0));
+
+			if (isContextMenuRequested || cell == null)
+			{
+				return;
+			}
+
+			cell.OnTapped();
+
+			var itemSource = ItemsSource?.Cast<object>().ToList();
+			object tappedGroup = null;
+			if (itemSource?.Count > groupIndex)
+			{
+				tappedGroup = itemSource.ElementAt(groupIndex);
+			}
+
+			ItemTapped?.Invoke(this,
+				new ItemTappedEventArgs(tappedGroup, cell.BindingContext,
+					TemplatedItems.GetGlobalIndexOfItem(cell?.BindingContext)));
+		}
+
+		/// <include file="../../docs/Microsoft.Maui.Controls/ListView.xml" path="//Member[@MemberName='NotifyRowTapped'][1]/Docs/*" />
+		[EditorBrowsable(EditorBrowsableState.Never)]
+		public void NotifyRowTapped(int index, Cell_GTK cell = null)
+		{
+			if (IsGroupingEnabled)
+			{
+				int leftOver;
+				int groupIndex = TemplatedItems.GetGroupIndexFromGlobal(index, out leftOver);
+
+				NotifyRowTapped(groupIndex, leftOver - 1, cell);
+			}
+			else
+				NotifyRowTapped(0, index, cell);
+		}
+
+		/// <include file="../../docs/Microsoft.Maui.Controls/ListView.xml" path="//Member[@MemberName='NotifyRowTapped'][3]/Docs/*" />
+		[EditorBrowsable(EditorBrowsableState.Never)]
+		public void NotifyRowTapped(int index, Cell_GTK cell, bool isContextmenuRequested)
+		{
+			if (IsGroupingEnabled)
+			{
+				int leftOver;
+				int groupIndex = TemplatedItems.GetGroupIndexFromGlobal(index, out leftOver);
+
+				NotifyRowTapped(groupIndex, leftOver - 1, cell, isContextmenuRequested);
+			}
+			else
+				NotifyRowTapped(0, index, cell, isContextmenuRequested);
+		}
+#else
 		protected override void SetupContent(Cell content, int index)
 		{
 			base.SetupContent(content, index);
@@ -592,6 +773,7 @@ namespace Microsoft.Maui.Controls
 			else
 				NotifyRowTapped(0, index, cell, isContextmenuRequested);
 		}
+#endif
 
 		internal override void OnIsPlatformEnabledChanged()
 		{

@@ -5,7 +5,7 @@ using GLib;
 using Gtk;
 using Pango;
 
-namespace Microsoft.Maui.Platform.GTK
+namespace Microsoft.Maui.Platform
 {
 	public class MauiGTKLabel : Label
 	{

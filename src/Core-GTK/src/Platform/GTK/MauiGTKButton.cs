@@ -9,7 +9,7 @@ using Gtk;
 using Microsoft.Maui.Hosting;
 using static System.Net.Mime.MediaTypeNames;
 
-namespace Microsoft.Maui.Platform.GTK
+namespace Microsoft.Maui.Platform
 {
 	public class MauiGTKButton : Box
 	{

@@ -11,8 +11,18 @@ namespace Microsoft.Maui.Controls
 		Element HeaderElement { get; }
 		bool RefreshAllowed { get; }
 
-		Cell CreateDefaultCell(object item);
 		string GetDisplayTextFromGroup(object cell);
+#if __GTK__
+		Cell_GTK CreateDefaultCell(object item);
+		void NotifyRowTapped(int index, int inGroupIndex, Cell_GTK cell);
+		void NotifyRowTapped(int index, int inGroupIndex, Cell_GTK cell, bool isContextMenuRequested);
+		void NotifyRowTapped(int index, Cell_GTK cell);
+		void NotifyRowTapped(int index, Cell_GTK cell, bool isContextMenuRequested);
+		void SendCellAppearing(Cell_GTK cell);
+		void SendCellDisappearing(Cell_GTK cell);
+		void SendRefreshing();
+#else
+		Cell CreateDefaultCell(object item);
 		void NotifyRowTapped(int index, int inGroupIndex, Cell cell);
 		void NotifyRowTapped(int index, int inGroupIndex, Cell cell, bool isContextMenuRequested);
 		void NotifyRowTapped(int index, Cell cell);
@@ -20,5 +30,6 @@ namespace Microsoft.Maui.Controls
 		void SendCellAppearing(Cell cell);
 		void SendCellDisappearing(Cell cell);
 		void SendRefreshing();
+#endif
 	}
 }

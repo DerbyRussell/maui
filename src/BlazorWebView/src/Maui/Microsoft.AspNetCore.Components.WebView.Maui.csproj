@@ -27,8 +27,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\..\Controls\src\Core-GTK\Controls.Core-GTK.csproj" />
     <ProjectReference Include="..\..\..\Controls\src\Core\Controls.Core.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\..\..\Core-GTK\src\Core-GTK.csproj" />
     <ProjectReference Include="..\..\..\Core\src\Core.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\..\..\Essentials-GTK\src\Essentials-GTK.csproj" />
+    <ProjectReference Include="..\..\..\Graphics\src\Graphics-GTK\Graphics-GTK.csproj" />
   </ItemGroup>
 
   <Import Project="$(MauiSrcDirectory)PublicAPI.targets" />
